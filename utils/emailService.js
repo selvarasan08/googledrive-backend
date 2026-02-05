@@ -1,11 +1,9 @@
 const nodemailer = require('nodemailer');
 
-// Create reusable transporter
+// Create reusable transporter with Gmail
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
-    secure: false, // true for 465, false for other ports
+    service: 'gmail', // ✅ Use Gmail service instead of host/port
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
@@ -19,7 +17,7 @@ const sendActivationEmail = async (email, firstName, activationToken) => {
   const activationUrl = `${process.env.FRONTEND_URL}/activate/${activationToken}`;
 
   const mailOptions = {
-    from: `"Google Drive Clone" <${process.env.EMAIL_FROM}>`,
+    from: `"Cloud Drive" <${process.env.EMAIL_USER}>`, // ✅ Changed from EMAIL_FROM
     to: email,
     subject: 'Activate Your Account',
     html: `
@@ -38,11 +36,11 @@ const sendActivationEmail = async (email, firstName, activationToken) => {
       <body>
         <div class="container">
           <div class="header">
-            <h1>Welcome to Google Drive Clone!</h1>
+            <h1>Welcome to Cloud Drive!</h1>
           </div>
           <div class="content">
             <h2>Hi ${firstName},</h2>
-            <p>Thank you for registering with Google Drive Clone. To complete your registration and activate your account, please click the button below:</p>
+            <p>Thank you for registering with Cloud Drive. To complete your registration and activate your account, please click the button below:</p>
             <p style="text-align: center;">
               <a href="${activationUrl}" class="button">Activate My Account</a>
             </p>
@@ -50,7 +48,7 @@ const sendActivationEmail = async (email, firstName, activationToken) => {
             <p style="word-break: break-all; color: #4285f4;">${activationUrl}</p>
             <p><strong>This activation link will expire in 24 hours.</strong></p>
             <p>If you didn't create an account with us, please ignore this email.</p>
-            <p>Best regards,<br>The Google Drive Clone Team</p>
+            <p>Best regards,<br>The Cloud Drive Team</p>
           </div>
           <div class="footer">
             <p>This is an automated email. Please do not reply to this message.</p>
@@ -63,9 +61,9 @@ const sendActivationEmail = async (email, firstName, activationToken) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`Activation email sent to ${email}`);
+    console.log(`✅ Activation email sent to ${email}`);
   } catch (error) {
-    console.error('Error sending activation email:', error);
+    console.error('❌ Error sending activation email:', error);
     throw new Error('Failed to send activation email');
   }
 };
@@ -76,7 +74,7 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
   const mailOptions = {
-    from: `"Google Drive Clone" <${process.env.EMAIL_FROM}>`,
+    from: `"Cloud Drive" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: 'Password Reset Request',
     html: `
@@ -100,7 +98,7 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
           </div>
           <div class="content">
             <h2>Hi ${firstName},</h2>
-            <p>We received a request to reset the password for your Google Drive Clone account.</p>
+            <p>We received a request to reset the password for your Cloud Drive account.</p>
             <p>Click the button below to reset your password:</p>
             <p style="text-align: center;">
               <a href="${resetUrl}" class="button">Reset My Password</a>
@@ -115,7 +113,7 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
               </ul>
             </div>
             <p>If you didn't request a password reset, please ignore this email or contact support if you have concerns.</p>
-            <p>Best regards,<br>The Google Drive Clone Team</p>
+            <p>Best regards,<br>The Cloud Drive Team</p>
           </div>
           <div class="footer">
             <p>This is an automated email. Please do not reply to this message.</p>
@@ -128,9 +126,9 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`Password reset email sent to ${email}`);
+    console.log(`✅ Password reset email sent to ${email}`);
   } catch (error) {
-    console.error('Error sending password reset email:', error);
+    console.error('❌ Error sending password reset email:', error);
     throw new Error('Failed to send password reset email');
   }
 };
@@ -140,7 +138,7 @@ const sendPasswordChangedEmail = async (email, firstName) => {
   const transporter = createTransporter();
 
   const mailOptions = {
-    from: `"Google Drive Clone" <${process.env.EMAIL_FROM}>`,
+    from: `"Cloud Drive" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: 'Password Successfully Changed',
     html: `
@@ -166,14 +164,14 @@ const sendPasswordChangedEmail = async (email, firstName) => {
             <div class="success">
               <strong>Success!</strong> Your password has been changed successfully.
             </div>
-            <p>This is a confirmation that the password for your Google Drive Clone account has been changed.</p>
+            <p>This is a confirmation that the password for your Cloud Drive account has been changed.</p>
             <p>If you made this change, no further action is required.</p>
             <p><strong>If you didn't make this change:</strong></p>
             <ul>
               <li>Please contact our support team immediately</li>
               <li>Your account may have been compromised</li>
             </ul>
-            <p>Best regards,<br>The Google Drive Clone Team</p>
+            <p>Best regards,<br>The Cloud Drive Team</p>
           </div>
           <div class="footer">
             <p>This is an automated email. Please do not reply to this message.</p>
@@ -186,9 +184,9 @@ const sendPasswordChangedEmail = async (email, firstName) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`Password changed confirmation email sent to ${email}`);
+    console.log(`✅ Password changed confirmation email sent to ${email}`);
   } catch (error) {
-    console.error('Error sending password changed email:', error);
+    console.error('❌ Error sending password changed email:', error);
     // Don't throw error here, as password was already changed successfully
   }
 };
