@@ -5,11 +5,6 @@ const {
   generatePasswordResetToken,
   getTokenExpiration,
 } = require('../utils/tokenGenerator');
-const {
-  sendActivationEmail,
-  sendPasswordResetEmail,
-  sendPasswordChangedEmail,
-} = require('../utils/emailService');
 
 /**
  * @desc    Register new user
@@ -52,22 +47,11 @@ const register = async (req, res) => {
       activationTokenExpires,
     });
 
-    // Send activation email
-    try {
-      await sendActivationEmail(email, firstName, activationToken);
-    } catch (emailError) {
-      console.error('Failed to send activation email:', emailError);
-      // Delete user if email fails
-      await User.findByIdAndDelete(user._id);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send activation email. Please try again.',
-      });
-    }
-
+    // Return token to frontend for EmailJS
     res.status(201).json({
       success: true,
       message: 'Registration successful! Please check your email to activate your account.',
+      activationToken, // Frontend needs this for EmailJS
       data: {
         email: user.email,
         firstName: user.firstName,
@@ -138,7 +122,6 @@ const activateAccount = async (req, res) => {
     });
   }
 };
-
 
 /**
  * @desc    Login user
@@ -214,7 +197,7 @@ const login = async (req, res) => {
 };
 
 /**
- * @desc    Forgot password - send reset email
+ * @desc    Forgot password - send reset token to frontend
  * @route   POST /api/auth/forgot-password
  * @access  Public
  */
@@ -257,25 +240,12 @@ const forgotPassword = async (req, res) => {
     user.resetPasswordExpires = resetTokenExpires;
     await user.save();
 
-    // Send reset email
-    try {
-      await sendPasswordResetEmail(email, user.firstName, resetToken);
-    } catch (emailError) {
-      console.error('Failed to send reset email:', emailError);
-      // Clear reset token if email fails
-      user.resetPasswordToken = null;
-      user.resetPasswordExpires = null;
-      await user.save();
-      
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send password reset email. Please try again.',
-      });
-    }
-
+    // Return token to frontend for EmailJS
     res.status(200).json({
       success: true,
       message: 'Password reset link has been sent to your email.',
+      resetToken, // Frontend needs this for EmailJS
+      firstName: user.firstName, // For personalized email
     });
   } catch (error) {
     console.error('Forgot password error:', error);
@@ -329,14 +299,6 @@ const resetPassword = async (req, res) => {
     user.resetPasswordToken = null;
     user.resetPasswordExpires = null;
     await user.save();
-
-    // Send confirmation email
-    try {
-      await sendPasswordChangedEmail(user.email, user.firstName);
-    } catch (emailError) {
-      console.error('Failed to send password changed email:', emailError);
-      // Continue even if email fails
-    }
 
     res.status(200).json({
       success: true,
