@@ -28,8 +28,25 @@ const register = async (req, res) => {
       });
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email address',
+      });
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long',
+      });
+    }
+
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -43,7 +60,7 @@ const register = async (req, res) => {
 
     // Create user (inactive by default)
     const user = await User.create({
-      email,
+      email: email.toLowerCase(),
       firstName,
       lastName,
       password,
@@ -55,13 +72,14 @@ const register = async (req, res) => {
     // Send activation email
     try {
       await sendActivationEmail(email, firstName, activationToken);
+      console.log(`Activation email sent to ${email}`);
     } catch (emailError) {
       console.error('Failed to send activation email:', emailError);
-      // Delete user if email fails
+      // Delete user if email fails to prevent orphan accounts
       await User.findByIdAndDelete(user._id);
       return res.status(500).json({
         success: false,
-        message: 'Failed to send activation email. Please try again.',
+        message: 'Failed to send activation email. Please try registering again.',
       });
     }
 
@@ -76,10 +94,19 @@ const register = async (req, res) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
+    
+    // Handle duplicate key error (in case of race condition)
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'User with this email already exists',
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Server error during registration',
-      error: error.message,
+      message: 'Server error during registration. Please try again.',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
     });
   }
 };
@@ -93,6 +120,15 @@ const activateAccount = async (req, res) => {
   try {
     const { token } = req.params;
 
+    console.log(`Activation attempt with token: ${token}`);
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Activation token is required',
+      });
+    }
+
     // Find user with valid activation token
     const user = await User.findOne({
       activationToken: token,
@@ -100,6 +136,7 @@ const activateAccount = async (req, res) => {
     });
 
     if (!user) {
+      console.log('No user found with valid token');
       return res.status(400).json({
         success: false,
         message: 'Invalid or expired activation token',
@@ -108,9 +145,10 @@ const activateAccount = async (req, res) => {
 
     // Check if already activated
     if (user.isActive) {
-      return res.status(400).json({
-        success: false,
-        message: 'Account is already activated',
+      console.log(`User ${user.email} already activated`);
+      return res.status(200).json({
+        success: true,
+        message: 'Your account is already activated! You can sign in now.',
       });
     }
 
@@ -120,16 +158,18 @@ const activateAccount = async (req, res) => {
     user.activationTokenExpires = null;
     await user.save();
 
+    console.log(`User ${user.email} activated successfully`);
+
     res.status(200).json({
       success: true,
-      message: 'Account activated successfully! You can now login.',
+      message: 'Account activated successfully! You can now sign in.',
     });
   } catch (error) {
     console.error('Activation error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during activation',
-      error: error.message,
+      message: 'Server error during activation. Please try again.',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
     });
   }
 };
@@ -152,7 +192,7 @@ const login = async (req, res) => {
     }
 
     // Find user (include password for comparison)
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
 
     if (!user) {
       return res.status(401).json({
@@ -165,7 +205,7 @@ const login = async (req, res) => {
     if (!user.isActive) {
       return res.status(401).json({
         success: false,
-        message: 'Account not activated. Please check your email for activation link.',
+        message: 'Account not activated. Please check your email for the activation link.',
       });
     }
 
@@ -181,6 +221,8 @@ const login = async (req, res) => {
 
     // Generate JWT token
     const token = generateToken(user._id);
+
+    console.log(`User ${user.email} logged in successfully`);
 
     res.status(200).json({
       success: true,
@@ -201,8 +243,8 @@ const login = async (req, res) => {
     console.error('Login error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during login',
-      error: error.message,
+      message: 'Server error during login. Please try again.',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
     });
   }
 };
@@ -224,10 +266,10 @@ const forgotPassword = async (req, res) => {
     }
 
     // Find user
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
-      // Don't reveal if user exists or not (security)
+      // Don't reveal if user exists or not (security best practice)
       return res.status(200).json({
         success: true,
         message: 'If an account exists with this email, a password reset link has been sent.',
@@ -254,6 +296,7 @@ const forgotPassword = async (req, res) => {
     // Send reset email
     try {
       await sendPasswordResetEmail(email, user.firstName, resetToken);
+      console.log(`Password reset email sent to ${email}`);
     } catch (emailError) {
       console.error('Failed to send reset email:', emailError);
       // Clear reset token if email fails
@@ -275,8 +318,8 @@ const forgotPassword = async (req, res) => {
     console.error('Forgot password error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during password reset request',
-      error: error.message,
+      message: 'Server error during password reset request. Please try again.',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
     });
   }
 };
@@ -327,10 +370,13 @@ const resetPassword = async (req, res) => {
     // Send confirmation email
     try {
       await sendPasswordChangedEmail(user.email, user.firstName);
+      console.log(`Password changed confirmation sent to ${user.email}`);
     } catch (emailError) {
       console.error('Failed to send password changed email:', emailError);
-      // Continue even if email fails
+      // Continue even if email fails - password is already changed
     }
+
+    console.log(`Password reset successful for ${user.email}`);
 
     res.status(200).json({
       success: true,
@@ -340,8 +386,8 @@ const resetPassword = async (req, res) => {
     console.error('Reset password error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during password reset',
-      error: error.message,
+      message: 'Server error during password reset. Please try again.',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
     });
   }
 };
@@ -372,7 +418,7 @@ const verifyToken = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error during token verification',
-      error: error.message,
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
     });
   }
 };

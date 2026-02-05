@@ -47,8 +47,8 @@ app.use((req, res, next) => {
 });
 
 // API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/files', fileRoutes);
+app.use('/auth', authRoutes);
+app.use('/files', fileRoutes);
 
 // Health check route
 app.get('/health', (req, res) => {
@@ -66,8 +66,8 @@ app.get('/', (req, res) => {
     message: 'Google Drive Clone API',
     version: '1.0.0',
     endpoints: {
-      auth: '/api/auth',
-      files: '/api/files',
+      auth: '/auth',
+      files: '/files',
       health: '/health',
     },
   });
