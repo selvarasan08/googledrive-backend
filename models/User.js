@@ -63,7 +63,7 @@ const userSchema = new mongoose.Schema(
 
 //
 // ✅ FIXED pre-save hook (NO next, NO try/catch needed)
-//
+//cl
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
 
